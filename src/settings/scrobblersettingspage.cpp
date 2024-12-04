@@ -196,19 +196,37 @@ void ScrobblerSettingsPage::Save() {
   #include <string.h>
 
   char description[11]; // A new password, for storing the token
-  printf("Enter a 10-character password for storing the user token: ");
-  fgets(description, 11, stdin);
-  remove_newline(description);
-
-  const char *payload = ui_->lineedit_listenbrainz_user_token->text(); // The token to store
-  //const char *payload = "TestUserToken12345-98765";
-  size_t payload_size = sizeof(ui_->lineedit_listenbrainz_user_token->text()); 
-  //size_t payload_size = strlen("TestUserToken12345-98765");
+  int pass_input_length = 0;
+  while (1) {
+      printf("Enter a 10-character password for storing the user token: ");
+      fgets(description, 11, stdin);
+      remove_newline(description);
+      pass_input_length = strlen(description);
+      if (pass_input_length != 10) {
+        printf("Input is not 10 characters long; it is %d. Try again.\n", pass_input_length);
+      }
+      else
+        break;
+  }
+  puts();
+  
+  size_t payload_size = 36;
+  int token_input_length = 0;
+  char *payload = calloc(payload_size+1,1);
+  *payload = ui_->lineedit_listenbrainz_user_token->text(); // The token to store
+  remove_newline(payload);
+  token_input_length = strlen(payload);
+  
+    if (token_input_length != 36) {
+      printf("Input is not 36 characters long; it is %d. Try again.\n", token_input_length);
+      return;
+    }
+  // Input greater than 36 chars just gets cut off
 
   key_serial_t key = add_key("user", description, (void*)payload, payload_size, KEY_SPEC_USER_KEYRING);
   if (key == -1) {
       perror("add_key");
-      return 1;
+      return;
   }
   printf("Key %d saved.\n", key);
   //////////////////////////////////////////////////////////////////////////////////
