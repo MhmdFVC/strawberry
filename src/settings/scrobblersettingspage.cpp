@@ -130,6 +130,21 @@ void ScrobblerSettingsPage::Load() {
 
 }
 
+////////////////////////////////////////////////////////
+// PROJECT FUNCTION
+////////////////////////////////////////////////////////
+void remove_newline(char *str) {
+  int i = 0;
+  while (str[i] != '\0') {
+      if (str[i] == '\n') {
+          str[i] = '\0';
+          break;
+      }
+      i++;
+  }
+}
+////////////////////////////////////////////////////////
+
 void ScrobblerSettingsPage::Save() {
 
   Settings s;
@@ -171,7 +186,34 @@ void ScrobblerSettingsPage::Save() {
 
   s.beginGroup(ListenBrainzScrobbler::kSettingsGroup);
   s.setValue(kEnabled, ui_->checkbox_listenbrainz_enable->isChecked());
-  s.setValue(kUserToken, ui_->lineedit_listenbrainz_user_token->text());
+
+  // PROJECT -- user token is stored in plain text?
+  // For auth it seems like both the user token and access token is needed though.
+  // Solution -- store using OS key storage mechanism. For Linux it is "keyrings".
+  #include <keyutils.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+
+  char description[11]; // A new password, for storing the token
+  printf("Enter a 10-character password for storing the user token: ");
+  fgets(description, 11, stdin);
+  remove_newline(description);
+
+  const char *payload = ui_->lineedit_listenbrainz_user_token->text(); // The token to store
+  //const char *payload = "TestUserToken12345-98765";
+  size_t payload_size = sizeof(ui_->lineedit_listenbrainz_user_token->text()); 
+  //size_t payload_size = strlen("TestUserToken12345-98765");
+
+  key_serial_t key = add_key("user", description, (void*)payload, payload_size, KEY_SPEC_USER_KEYRING);
+  if (key == -1) {
+      perror("add_key");
+      return 1;
+  }
+  printf("Key %d saved.\n", key);
+  //////////////////////////////////////////////////////////////////////////////////
+  //s.setValue(kUserToken, ui_->lineedit_listenbrainz_user_token->text()); // Old line
+
   s.endGroup();
 
   scrobbler_->ReloadSettings();

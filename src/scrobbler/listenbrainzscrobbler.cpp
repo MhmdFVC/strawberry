@@ -115,12 +115,67 @@ ListenBrainzScrobbler::~ListenBrainzScrobbler() {
 
 }
 
+////////////////////////////////////////////////////////
+// PROJECT FUNCTION
+////////////////////////////////////////////////////////
+void remove_newline(char *str) {
+  int i = 0;
+  while (str[i] != '\0') {
+      if (str[i] == '\n') {
+          str[i] = '\0';
+          break;
+      }
+      i++;
+  }
+}
+////////////////////////////////////////////////////////
+
 void ListenBrainzScrobbler::ReloadSettings() {
 
   Settings s;
   s.beginGroup(kSettingsGroup);
   enabled_ = s.value(ScrobblerSettings::kEnabled, false).toBool();
-  user_token_ = s.value(ScrobblerSettings::kUserToken).toString();
+
+// PROJECT -- user token is stored in plain text?
+// For auth it seems like both the user token and access token is needed though.
+// Solution -- store using OS key storage mechanism. For Linux it is "keyrings".
+  #include <keyutils.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+
+  char description[11];
+  printf("Enter the password for retrieving the user token: ");
+  fgets(description, 11, stdin);
+  remove_newline(description);
+
+  key_serial_t key;
+  const int payload_size = 36;
+  char *payload = malloc(payload_size);
+  if (!payload) {
+      perror("malloc");
+      return 1;
+  }
+
+  // Request key
+  key = keyctl_search(KEY_SPEC_USER_KEYRING, "user", description, KEY_SPEC_USER_KEYRING);
+  if (key == -1) {
+      perror("keyctl_search");
+      return 1;
+  }
+
+  *payload = keyctl_read(key, payload, payload_size);
+  if (keyctl_read(key, payload, payload_size) == -1) {
+      perror("keyctl_read");
+      free(payload);
+      return 1;
+  }
+
+  printf("Key found. Token: %s\n", payload);
+  free(payload);
+  user_token_ = payload;
+  //////////////////////////////////////////////////////////////////////////////////
+  //user_token_ = s.value(ScrobblerSettings::kUserToken).toString(); // Original line
+
   s.endGroup();
 
   s.beginGroup(ScrobblerSettings::kSettingsGroup);
@@ -327,7 +382,7 @@ void ListenBrainzScrobbler::AuthenticateReplyFinished(QNetworkReply *reply) {
     return;
   }
 
-  access_token_ = json_obj["access_token"_L1].toString();
+  access_token_ = json_obj["access_token"_L1].toString(); // PROJECT -- access token is stored in plain text?
   expires_in_ = json_obj["expires_in"_L1].toInt();
   token_type_ = json_obj["token_type"_L1].toString();
   if (json_obj.contains("refresh_token"_L1)) {
@@ -337,7 +392,7 @@ void ListenBrainzScrobbler::AuthenticateReplyFinished(QNetworkReply *reply) {
 
   Settings s;
   s.beginGroup(kSettingsGroup);
-  s.setValue("access_token", access_token_);
+  s.setValue("access_token", access_token_); // PROJECT -- access token is stored in plain text?
   s.setValue("expires_in", expires_in_);
   s.setValue("token_type", token_type_);
   s.setValue("refresh_token", refresh_token_);
@@ -362,7 +417,7 @@ QNetworkReply *ListenBrainzScrobbler::CreateRequest(const QUrl &url, const QJson
   QNetworkRequest req(url);
   req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
   req.setHeader(QNetworkRequest::ContentTypeHeader, u"application/json"_s);
-  req.setRawHeader("Authorization", QStringLiteral("Token %1").arg(user_token_).toUtf8());
+  req.setRawHeader("Authorization", QStringLiteral("Token %1").arg(user_token_).toUtf8()); // PROJECT -- send the ephemerally-retrieved user token
   QNetworkReply *reply = network_->post(req, json_doc.toJson());
   replies_ << reply;
 

@@ -1,0 +1,6 @@
+projectKey=MhmdFVC_strawberry_f6a28837-7df2-46d8-8a43-96170262d9db
+serverUrl=http://localhost:9000
+serverVersion=10.7.0.96327
+dashboardUrl=http://localhost:9000/dashboard?id=MhmdFVC_strawberry_f6a28837-7df2-46d8-8a43-96170262d9db
+ceTaskId=7b541f82-5606-48ba-8ce6-4ab6411d9316
+ceTaskUrl=http://localhost:9000/api/ce/task?id=7b541f82-5606-48ba-8ce6-4ab6411d9316
